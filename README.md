@@ -8,6 +8,10 @@
 
 ---
 
+Academic Paper linked [here](https://github.com/leelasaddepalli/scales-of-justice/blob/main/Scales%20of%20Justice%20Study.pdf)
+
+Academic Poster linked [here](https://github.com/leelasaddepalli/scales-of-justice/blob/main/363%20Race%20Bias%20Poster.pdf)
+
 ## Overview
 
 This project investigates whether race, social desirability, and age bias influence mock juror decision-making — and whether those effects persist even when participants are given legally complete, balanced case materials.
