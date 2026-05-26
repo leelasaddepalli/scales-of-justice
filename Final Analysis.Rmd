@@ -1,0 +1,1024 @@
+---
+title: "Advanced Methods Final Code"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Raw data
+
+```{r message=FALSE, warning=FALSE}
+#install.packages("tidyverse")
+#install.packages("psych")
+#install.packages("ggpplot")
+#install.packages("yarrr")
+#install.packages("ez")
+#install.packages("apaTables")
+install.packages("ungeviz")
+
+library(tidyverse)
+library(psych)
+library(ggplot2)
+library(yarrr)
+
+raw_data <- read_csv("final clean data.csv") %>%
+  select(Status,
+         RecordedDate,
+         ResponseId,
+         `Duration (in seconds)`,
+         Consent,
+         ProlificID,
+         part_race,
+         part_age,
+         part_gender,
+         part_location,
+         RaceGroup,
+         `1W_rec_time1_Page Submit`,
+         `1W_rec_time2_Page Submit`,
+         att_ch_1W,
+         race_1def_age,
+         race_1def_verdict,
+         race_1def_resp1,
+         race_1def_resp2,
+         race_1def_resp3,
+         race_1def_resp4,
+         `2B_rec_time1_Page Submit`,
+         `2B_rec_time2_Page Submit`,
+         att_ch_2B,
+         race_2def_age,
+         race_2def_verdict,
+         race_2def_resp1,
+         race_2def_resp2,
+         race_2def_resp3,
+         race_2def_resp4,
+         `1B_rec_time1_Page Submit`,
+         `1B_rec_time2_Page Submit`,
+         att_ch_1B
+         ) %>%
+  filter(!Status == "Survey Preview") %>%
+  filter(RecordedDate >= '3/24/25 15:00') %>%
+  filter(Consent == "Yes") %>%
+  filter(!is.na(RaceGroup))
+
+table(raw_data$part_race)
+
+```
+
+# Data Cleanup
+
+```{r}
+
+# Recoding Data
+
+## Crim Scores
+
+data_mutate <- raw_data %>%
+  mutate(race_1def_resp1 = ifelse(race_1def_resp1 == "Very Responsible", 5,
+                                  ifelse(race_1def_resp1 == "Slightly Responsible", 4,
+                                         ifelse(race_1def_resp1 == "Neutral", 3,
+                                                ifelse(race_1def_resp1 == "Slightly Not Responsible", 2, 
+                                                       ifelse(race_1def_resp1 == "Very Not Responsible", 1,0)))))) %>%
+    mutate(race_1def_resp2 = ifelse(race_1def_resp2 == "Very Well", 5,
+                                  ifelse(race_1def_resp2 == "Moderately Well", 4,
+                                         ifelse(race_1def_resp2 == "Neutral", 3,
+                                                ifelse(race_1def_resp2 == "Poorly", 2, 
+                                                       ifelse(race_1def_resp2 == "Very Poorly", 1,0)))))) %>%
+  #implied "without intervention" - so if unlikely to continue with behaviors, he will be more culpbable
+      mutate(race_1def_resp3 = ifelse(race_1def_resp3 == "Extremely unlikely", 1,
+                                  ifelse(race_1def_resp3 == "Somewhat unlikely", 2,
+                                         ifelse(race_1def_resp3 == "Neither likely nor unlikely", 3,
+                                                ifelse(race_1def_resp3 == "Somewhat likely", 4, 
+                                                       ifelse(race_1def_resp3 == "Extremely likely", 5,0)))))) %>%
+  mutate(race_1def_resp4 = ifelse(race_1def_resp4 == "Extremely unlikely", 5,
+                                  ifelse(race_1def_resp4 == "Somewhat unlikely", 4,
+                                         ifelse(race_1def_resp4 == "Neither likely nor unlikely", 3,
+                                                ifelse(race_1def_resp4 == "Somewhat likely", 2, 
+                                                       ifelse(race_1def_resp4 == "Extremely likely", 1,0)))))) %>%
+  mutate(race_2def_resp1 = ifelse(race_2def_resp1 == "Very Responsible", 5,
+                                  ifelse(race_2def_resp1 == "Slightly Responsible", 4,
+                                         ifelse(race_2def_resp1 == "Neutral", 3,
+                                                ifelse(race_2def_resp1 == "Slightly Not Responsible", 2, 
+                                                       ifelse(race_2def_resp1 == "Very Not Responsible", 1,0)))))) %>%
+    mutate(race_2def_resp2 = ifelse(race_2def_resp2 == "Very Well", 5,
+                                  ifelse(race_2def_resp2 == "Moderately Well", 4,
+                                         ifelse(race_2def_resp2 == "Neutral", 3,
+                                                ifelse(race_2def_resp2 == "Poorly", 2, 
+                                                       ifelse(race_1def_resp2 == "Very Poorly", 1,0)))))) %>%
+      mutate(race_2def_resp3 = ifelse(race_2def_resp3 == "Extremely unlikely", 1,
+                                  ifelse(race_2def_resp3 == "Somewhat unlikely", 2,
+                                         ifelse(race_2def_resp3 == "Neither likely nor unlikely", 3,
+                                                ifelse(race_2def_resp3 == "Somewhat likely", 4, 
+                                                       ifelse(race_2def_resp3 == "Extremely likely", 5,0)))))) %>%
+  mutate(race_2def_resp4 = ifelse(race_2def_resp4 == "Extremely unlikely", 5,
+                                  ifelse(race_2def_resp4 == "Somewhat unlikely", 4,
+                                         ifelse(race_2def_resp4 == "Neither likely nor unlikely", 3,
+                                                ifelse(race_2def_resp4 == "Somewhat likely", 2, 
+                                                       ifelse(race_2def_resp4 == "Extremely likely", 1,0))))))
+
+## Part Race
+data_mutate <- data_mutate %>%
+  mutate(part_race = ifelse(part_race == "White", "White", "Non-White"))
+
+## Verdict
+
+data_mutate <- data_mutate %>%
+  mutate(race_1def_verdict = ifelse(race_1def_verdict == "Not Guilty (letting the defendant go free)", "Not Guilty", "Guilty"),
+         race_2def_verdict = ifelse(race_2def_verdict == "Not Guilty (letting the defendant go free)", "Not Guilty", "Guilty"))
+
+# Age Clean Up and Accuracy
+data_recode <- data_mutate %>%
+  filter(!race_1def_age <= 0) %>%
+  filter(!race_2def_age <= 0) %>%
+  mutate(race_1def_age = ifelse(race_1def_age == "A young man in his mid 20's", "25", race_1def_age)) %>%
+  filter(!race_1def_age == "He was found guilty") %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "The defendant would be at least the age of 21.", "21", race_2def_age)) %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "He looks to 21", "21", race_2def_age)) %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "Based on the picture, he looked quite young. I would guess around 22 years old.", "22", race_2def_age)) %>%
+  mutate(def1_age_acc = ifelse(race_1def_age <= "22", "Accurate", "Inaccurate")) %>%
+  mutate(inacc_score_d1 = as.integer(race_1def_age) - 18) %>%
+  mutate(inacc_score_d1 = ifelse(inacc_score_d1 <= "0", "0", inacc_score_d1)) %>%
+mutate(def2_age_acc = ifelse(race_2def_age <= "22", "Accurate", "Inaccurate")) %>%
+  mutate(inacc_score_d2 = as.integer(race_2def_age) - 18) %>%
+  mutate(inacc_score_d2 = ifelse(inacc_score_d2 <= "0", "0", inacc_score_d2))
+
+
+data_forC <- data_mutate %>%
+  filter(!race_2def_age <= "0") %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "The defendant would be at least the age of 21.", "21", race_2def_age)) %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "He looks to 21", "21", race_2def_age)) %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "Based on the picture, he looked quite young. I would guess around 22 years old.", "22", race_2def_age)) %>%
+  mutate(race_2def_age = ifelse(race_2def_age == "30s", "30", race_2def_age)) %>%
+mutate(def2_age_acc = ifelse(race_2def_age <= "22", "Accurate", "Inaccurate")) %>%
+  mutate(inacc_score_d2 = as.integer(race_2def_age) - 18) %>%
+  mutate(inacc_score_D2 = ifelse(inacc_score_d2 <= "0", "0", inacc_score_d2))
+
+data_recode <- data_recode %>%
+  select(ResponseId,
+         race_1def_age,
+         race_2def_age,
+         race_1def_resp1,
+         race_1def_resp2,
+         race_1def_resp3,
+         race_1def_resp4,
+         race_2def_resp1,
+         race_2def_resp2,
+         race_2def_resp3,
+         race_2def_resp4,
+         race_1def_verdict,
+         race_2def_verdict,
+         RaceGroup,
+         part_race,
+         part_age, 
+         def1_age_acc,
+         def2_age_acc, 
+         inacc_score_d1,
+         inacc_score_d2)
+
+data_forC <- data_forC %>%
+  select(ResponseId,
+         race_2def_age,
+         race_2def_resp1,
+         race_2def_resp2,
+         race_2def_resp3,
+         race_2def_resp4,
+         race_2def_verdict,
+         RaceGroup,
+         part_race,
+         part_age, 
+         def2_age_acc,
+         inacc_score_d2)
+
+# Age Group
+groupA <- data_recode %>%
+  filter(RaceGroup == "GroupA")
+groupB <- data_recode %>%
+  filter(RaceGroup == "GroupB") %>%
+  filter(!ResponseId == "R_624x8SDDvNPRf4W")
+groupC <- data_forC %>%
+  filter(RaceGroup == "GroupC") 
+
+table(data_mutate$part_race)
+
+table(groupA$part_race)
+table(groupA$race_1def_verdict)
+table(groupA$race_2def_verdict)
+table(groupA$race_1def_verdict, groupA$part_race)
+barplot(table(groupA$race_1def_verdict, groupA$part_race))
+table(groupA$race_2def_verdict, groupA$part_race)
+barplot(table(groupA$race_2def_verdict, groupA$part_race))
+
+table(groupB$part_race)
+table(groupB$race_1def_verdict)
+table(groupB$race_2def_verdict)
+table(groupB$race_1def_verdict, groupB$part_race)
+barplot(table(groupB$race_1def_verdict, groupB$part_race))
+table(groupB$race_2def_verdict, groupB$part_race)
+barplot(table(groupB$race_2def_verdict, groupB$part_race))
+
+table(groupC$part_race)
+table(groupC$race_2def_verdict)
+table(groupC$race_2def_verdict, groupC$part_race)
+barplot(table(groupC$race_2def_verdict, groupC$part_race))
+
+## Mean Crim Resp
+
+groupA <- groupA %>%
+  mutate(criminal_responsibility_d1 = race_1def_resp1 + race_1def_resp2 + race_1def_resp3 + race_1def_resp4) %>%
+  mutate(criminal_responsibility_d2 = race_2def_resp1+race_2def_resp2+race_2def_resp3+race_2def_resp4)
+
+groupA_mixed <- groupA %>%
+  pivot_longer(starts_with("criminal_responsibility_d"),
+               names_to = "order",
+               values_to = "crim_resp_total")%>%
+  mutate(crim_resp_mean = crim_resp_total/4) %>%
+  mutate(order = ifelse(order == "criminal_responsibility_d1", "1", "2"))
+
+groupB <- groupB %>%
+  mutate(criminal_responsibility_d1 = race_1def_resp1 + race_1def_resp2 + race_1def_resp3 + race_1def_resp4) %>%
+  mutate(criminal_responsibility_d2 = race_2def_resp1+race_2def_resp2+race_2def_resp3+race_2def_resp4)
+
+groupB_mixed <- groupB %>%
+  pivot_longer(starts_with("criminal_responsibility_d"),
+               names_to = "order",
+               values_to = "crim_resp_total")%>%
+  mutate(crim_resp_mean = crim_resp_total/4) %>%
+  mutate(order = ifelse(order == "criminal_responsibility_d1", "1", "2"))
+
+groupC_mixed <- groupC %>%
+  mutate(crim_resp_total = race_2def_resp1+race_2def_resp2+race_2def_resp3+race_2def_resp4) %>%
+  mutate(crim_resp_mean = crim_resp_total/4) %>%
+  mutate(order = "2")
+```
+
+EFA for crim culp
+
+```{r}
+
+efa_def1 <- data_recode %>%
+  select(race_1def_resp1,
+         race_1def_resp2,
+         race_1def_resp3,
+         race_1def_resp4)
+
+scree(efa_def1)
+
+efa1_oblique <- fa(efa_def1, 
+                     nfactors = 2,
+                     fm = "minres", 
+                     rotate = "oblimin")
+
+efa1_oblique
+
+efa_def2 <- data_recode %>%
+  select(race_2def_resp1,
+         race_2def_resp2,
+         race_2def_resp3,
+         race_2def_resp4)
+
+efa <- data_recode %>%
+  select(race_1def_resp1,
+         race_1def_resp2,
+         race_1def_resp3,
+         race_1def_resp4,
+         race_2def_resp1,
+         race_2def_resp2,
+         race_2def_resp3,
+         race_2def_resp4)
+
+efa_total <- fa(efa, 
+                     nfactors = 1,
+                     fm = "minres", 
+                     rotate = "oblimin")
+
+efa_total
+
+
+
+```
+
+Adding defendant race
+
+```{r}
+
+
+groupA_grp <- groupA_mixed %>%
+  mutate(def_race = ifelse(order == "1", "White", "Non-White")) #%>%
+  #mutate(grp_status = ifelse(part_race == def_race, "In Group", "Out Group"))
+
+table(groupA_grp$race_1def_verdict)
+table(groupA_grp$race_2def_verdict)
+
+groupB_grp <- groupB_mixed %>%
+  mutate(def_race = ifelse(order == "1", "Non-White", "Non-White")) #%>%
+  #mutate(grp_status = ifelse(part_race == def_race, "In Group", "Out Group"))
+table(groupB_grp$race_1def_verdict)
+table(groupB_grp$race_2def_verdict)
+
+groupC_grp <- groupC_mixed %>%
+  mutate(def_race = "Non-White")
+  #mutate(grp_status = ifelse(part_race == "Non-White", "In Group", "Out Group"))
+table(groupC_grp$race_2def_verdict)
+
+```
+
+# ANOVA
+
+Final Clean Datasets
+
+```{r}
+
+final <- full_join(groupA_grp, groupB_grp, join_by(ResponseId)) %>%
+  full_join(groupC_grp, join_by(ResponseId))
+
+final <- final %>%
+  select(ResponseId,
+         RaceGroup.x,
+         RaceGroup.y,
+         RaceGroup,
+         crim_resp_mean.x,
+         crim_resp_mean.y,
+         crim_resp_mean,
+         part_race.x,
+         part_race.y,
+         part_race, 
+         inacc_score_d1.x,
+         inacc_score_d1.y,
+         inacc_score_d2.x,
+         inacc_score_d2.y,
+         def1_age_acc.x,
+         def1_age_acc.y,
+         def2_age_acc,
+         def2_age_acc.x,
+         def2_age_acc.y,
+         def_race.x,
+         def_race.y,
+         def_race,
+         race_1def_verdict.x,
+         race_2def_verdict.x,
+          race_1def_verdict.y,
+         race_2def_verdict.y,
+         race_2def_verdict,
+          order.x,
+         order.y,
+         order) %>%
+  mutate("age_acc_def1.y" = def1_age_acc.y,
+         "age_acc_def2.y" = def2_age_acc.y,
+         "age_acc_def1.x" = def1_age_acc.x,
+         "age_acc_def2.x" = def2_age_acc.x,
+         "age_acc_def2" = def2_age_acc)
+
+#library(readr)
+#write_csv(final, path = "final_age_exp.csv")
+
+# 
+# final_pivot <- final %>%
+#   select(ResponseId,
+#          RaceGroup.x, RaceGroup.y, RaceGroup,
+#          crim_resp_mean.x, crim_resp_mean.y, crim_resp_mean,
+#          part_race.x, part_race.y, part_race,
+#          order.x, order.y, order,
+#          def_race.x, def_race.y, def_race,
+#          race_1def_verdict.x, race_2def_verdict.x,
+#          race_1def_verdict.y, race_2def_verdict.y, race_2def_verdict,
+#          def1_age_acc.x, def1_age_acc.y, def2_age_acc,
+#          def2_age_acc.x, def2_age_acc.y) %>%
+#   # Create harmonized variables
+#   mutate(
+#     RaceGroup_final = coalesce(RaceGroup, RaceGroup.x, RaceGroup.y),
+#     participant_race_final = coalesce(part_race, part_race.x, part_race.y),
+#     defrace_final = coalesce(def_race, def_race.x, def_race.y),
+#     crimculpmean_final = coalesce(crim_resp_mean, crim_resp_mean.x, crim_resp_mean.y),
+#     order_final = coalesce(order, order.x, order.y),
+#     verdict_final = coalesce(race_2def_verdict, race_2def_verdict.x, race_2def_verdict.y),
+#     age_accuracy = coalesce(def2_age_acc, def2_age_acc.x, def2_age_acc.y, def1_age_acc.x, def1_age_acc.y)
+#   ) %>%
+#   select(ResponseId, 
+#          age_accuracy, 
+#          RaceGroup = RaceGroup_final, 
+#          participant_race = participant_race_final, 
+#          order = order_final, 
+#          defrace = defrace_final, 
+#          crimculpmean = crimculpmean_final, 
+#          verdict = verdict_final)
+
+
+final_long <- final %>%
+  pivot_longer(starts_with("RaceGrou"),
+               names_to = "dataset",
+               values_to = "RaceGroup",
+               values_drop_na = TRUE)
+
+final_long <- final_long %>%
+  pivot_longer(starts_with("race_"),
+               names_to = "datasets",
+               values_to = "Verdict",
+               values_drop_na = TRUE)
+
+final_long <- final_long %>%
+  pivot_longer(starts_with("def_rac"),
+               names_to = "dataset1",
+               values_to = "DefRace",
+               values_drop_na = TRUE)
+
+final_long<- final_long %>%
+  pivot_longer(starts_with("part_"),
+               names_to = "dataset2",
+               values_to = "PartRace",
+               values_drop_na = TRUE)
+
+final_long <- final_long %>%
+  pivot_longer(starts_with("crim_resp"),
+               names_to = "dataset3",
+               values_to = "CrimCulpMean",
+               values_drop_na = TRUE)
+
+final_long <- final_long %>%
+  pivot_longer(starts_with("orde"),
+               names_to = "dataset4",
+               values_to = "Order",
+               values_drop_na = TRUE)
+
+final_long<- final_long %>%
+  pivot_longer(starts_with("age_acc"),
+               names_to = "dataset5",
+               values_to = "AgeAccuracy",
+               values_drop_na = TRUE)
+
+
+# final_long <- final_long %>%
+#   pivot_longer(starts_with("inacc"),
+#                names_to = "dataset6",
+#                values_to = "InaccurateScore",
+#                values_drop_na = TRUE)
+
+
+final_select <- final_long %>%
+  select(ResponseId,
+         PartRace,
+         RaceGroup,
+         CrimCulpMean,
+         Order,
+         AgeAccuracy,
+         Verdict,
+         dataset4,
+         DefRace) %>%
+  filter(!is.na(Order))
+
+final_nodupes <- final_select %>%
+  filter(!duplicated(final_select))
+
+table(final_nodupes$Verdict)
+table(final_select$Verdict)
+
+# ggplot(final_pivot, aes(x = participant_race, fill = verdict)) +
+#   geom_bar(position = "fill") +
+#   facet_wrap(~ order + defrace) +
+#   labs(x = "Participant Race", y = "Proportion", fill = "Verdict", title = "Verdict by Defendant Race") +
+#   theme_minimal()
+# 
+# final_crim <- final_pivot %>%
+#   mutate(crimculpassigned = ifelse(crimculpmean > 2.5, 1, 0))
+# 
+# summarize_crim <- final_crim %>%
+#   group_by(participant_race, order, defrace) %>%
+#   dplyr::summarize(
+#     perc_atabove2 = sum(crimculpassigned, na.rm =TRUE)/length(crimculpassigned),
+#     .groups = "drop") %>%
+#   mutate(perc_atabove2 = 100*perc_atabove2)
+# 
+# ggplot(summarize_crim, aes(y = perc_atabove2, fill = participant_race)) +
+#   geom_bar(position = "fill") +
+#   facet_wrap(~ order + defrace) +
+#   labs(y = "Proportion", fill = "Participant Race", title = "Crim Culp by Defendant Race") +
+#   theme_minimal()
+
+```
+
+
+
+```{r}
+
+library(ez)
+library(apaTables)
+
+anova_interact_1 <- ezANOVA(data = final_select,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, DefRace),#Verdict),
+        detailed = TRUE)
+
+print(anova_interact_1)
+
+#Significant results disappeared after removing verdict
+
+#apa.ezANOVA.table(anova_interact_1,
+             #     filename = "anova interactions 1 - race.doc")
+
+```
+
+Adding Age
+
+```{r}
+
+anova_interact_2 <- ezANOVA(data = final_select,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, DefRace, AgeAccuracy),#Verdict),
+        detailed = TRUE)
+
+print(anova_interact_2)
+
+#apa.ezANOVA.table(anova_interact_2,
+                 # filename = "anova interact 2 - age and race.doc")
+
+```
+
+# ANOVA by Def
+
+```{r}
+
+#Guilty verdicts in each group, per defendant
+#Guilty verdicts per defendant, separated by participant race
+#age accuracy and guilty verdicts
+#age accuracy and participant race
+
+#def 1
+
+def1 <- final_select %>%
+  select(ResponseId,
+         PartRace,
+         Order,
+         RaceGroup,
+         AgeAccuracy,
+         DefRace,
+         Verdict,
+         CrimCulpMean) %>%
+  filter(Order == "1") %>%
+  mutate(PartRace = factor(PartRace, levels = c("White", "Non-White")))
+
+def1 <- def1 %>%
+  filter(!duplicated(def1))
+
+
+library(dplyr)
+library(boot)
+
+def2 <- final_select %>%
+  select(ResponseId,
+         PartRace,
+         Order,
+         RaceGroup,
+         AgeAccuracy,
+         DefRace,
+         Verdict,
+         CrimCulpMean) %>%
+         #InaccurateScore) %>%
+  filter(Order == "2") %>%
+  mutate(PartRace = factor(PartRace, levels = c("White", "Non-White")))
+
+def2 <- def2 %>%
+  filter(!duplicated(def2))
+
+anova_interact_d1 <- ezANOVA(data = def1,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, DefRace, AgeAccuracy),
+        detailed = TRUE)
+print(anova_interact_d1)
+apa.ezANOVA.table(anova_interact_d1,
+                  filename = "anova interaction t1 - def1.doc")
+
+get_p_value <- function(data, indices) {
+  d <- data[indices, ] #bootstrap sample
+  result <- ez::ezANOVA(data = d,
+                         wid = ResponseId,
+                         dv = CrimCulpMean,
+                         between = .(PartRace, DefRace, AgeAccuracy),
+                         detailed = TRUE)
+  return(result$ANOVA$p[1])
+}
+
+#boot_results <- boot(data = def1, statistic = get_p_value(def1), R = 1000)
+
+#boot.ci(boot_results, type = 'perc')
+
+anova_interact_d3 <- ezANOVA(data = def1,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, DefRace),
+        detailed = TRUE)
+
+print(anova_interact_d3)
+
+print(apa.ezANOVA.table(anova_interact_d3,
+                  filename = "anova interaction t3 - def1.doc"))
+
+anova_interact_d4 <- ezANOVA(data = def2,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, RaceGroup),
+        detailed = TRUE)
+
+print(anova_interact_d4)
+
+apa.ezANOVA.table(anova_interact_d4,
+                  filename = "anova interaction t4 - def2.doc")
+
+anova_interact_d2 <- ezANOVA(data = def2,
+        wid = ResponseId,
+        dv = CrimCulpMean,
+        between = .(PartRace, RaceGroup, AgeAccuracy),
+        detailed = TRUE)
+
+print(anova_interact_d2)
+
+apa.ezANOVA.table(anova_interact_d2,
+                  filename = "anova interaction t2 - def2.doc")
+
+```
+
+Data Visualizations
+
+```{r}
+
+# def1_vis <- def1 %>%
+#   mutate(atabove2 = ifelse(CrimCulpMean > 2.5, 1, 0)) %>%
+#   filter(!is.na(atabove2)) %>%
+#   mutate(RaceGroup = ifelse(RaceGroup == "GroupA", "GroupA/White", "GroupB/Black"))
+# 
+# summarize_def1 <- def1_vis %>%
+#   group_by(RaceGroup, PartRace) %>%
+#   dplyr::summarize(
+#     perc_atabove2 = sum(atabove2, na.rm = TRUE)/length(CrimCulpMean)
+#     ) %>%
+#   mutate(perc_atabove2 = 100*perc_atabove2) 
+
+def1_guilt <- def1 %>%
+  mutate(guiltfac = ifelse(Verdict == "Guilty", 1, 0)) %>%
+  filter(!is.na(guiltfac))
+
+summarize_def1_g <- def1_guilt %>%
+  group_by(PartRace, RaceGroup, AgeAccuracy) %>%
+  dplyr::summarize(
+    guiltperc = sum(guiltfac, na.rm = TRUE)/length(guiltfac)
+    ) %>%
+  mutate(guiltperc = 100*guiltperc) 
+
+# ggplot(data = def1, aes(x = RaceGroup, y = CrimCulpMean, fill = PartRace)) +
+#   geom_col(position = "dodge")  +
+#   facet_wrap(~Verdict)
+
+# ggplot(data = summarize_def1, aes(x = RaceGroup, y = perc_atabove2, fill = PartRace)) +
+#   geom_col(position = "dodge")  
+  #facet_wrap(~Verdict) 
+
+table(def1$Verdict, def1$RaceGroup)
+
+library(ungeviz)
+
+# ggplot(data = def1,
+#        mapping = aes(x = RaceGroup,
+#                      y = CrimCulpMean,
+#                      fill = PartRace)) +
+#   #geom_point() +
+#   geom_violin(adjust = 2, trim = FALSE, alpha = 0.8) +
+#   geom_jitter(width = .25,
+#               alpha = .2,
+#               height = .1) +
+#   geom_violin(adjust = 2) +
+#   stat_summary(fun.data = mean_cl_normal,
+#                geom = "hpline",
+#                position = position_dodge(width = 0.9),
+#                size = 0.8,
+#                color = "red") +
+#   # stat_summary(fun = "mean",
+#   #              geom = "hpline",
+#   #              width = .8,
+#   #              size = 1.5,
+#   #              color = "black") +
+#   # stat_summary(fun.data = mean_cl_normal,
+#   #              geom = "errorbar",
+#   #              width = .8,
+#   #              size = 1,
+#   #              color = "black") +
+#   labs(x = "Race of Defendant", y = "Mean Criminal Culpability") +
+#   scale_x_discrete(labels = c("White Def1", "Black Def1")) +
+#   facet_grid(~AgeAccuracy) +
+#   theme(
+#         panel.background = element_blank(),
+#         axis.ticks = element_blank(),
+#         axis.text.x = element_text(size = 12),
+#         axis.text.y = element_text( size = 12),
+#         axis.title.x = element_text(face = "bold", size = 18),
+#         axis.title.y = element_text(face = "bold", size = 18),
+#         axis.line = element_line(colour = "black"),
+#         strip.text = element_text(size = 14, face = "bold"),
+#         legend.text = element_text(size = 10)) +
+#   scale_fill_manual(name = "Participant Race",
+#                     values = c('White' = 'darkturquoise',
+#                                'Non-White' = 'darkviolet'))
+
+ggplot(data = def1,
+       mapping = aes(x = RaceGroup,
+                     y = CrimCulpMean,
+                     fill = PartRace)) +
+  #geom_point() +
+  geom_violin(adjust = 2, trim = FALSE, alpha = 0.8) +
+  geom_jitter(width = .25,
+              alpha = .2,
+              height = .1) +
+  geom_violin(adjust = 2) +
+  stat_summary(fun = mean,
+               geom = "crossbar",
+               aes(group = PartRace),
+               show.legend = FALSE,
+               position = position_dodge(width = 0.9),
+               width = 0.5,
+               size = 0.4,
+               color = "red") +
+  # stat_summary(fun = "mean",
+  #              geom = "hpline",
+  #              width = .8,
+  #              size = 1.5,
+  #              color = "black") +
+  stat_summary(fun.data = mean_cl_normal,
+               geom = "errorbar",
+               position = position_dodge(width = 0.9),
+               width = .8,
+               size = 0.4,
+               color = "black") +
+  labs(x = "Race Group", y = "Mean Criminal Culpability") +
+  scale_x_discrete(labels = c("GroupA" = "A
+                            White Def1", "Black Def1")) +
+  #facet_grid(~AgeAccuracy) +
+  theme(
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text( size = 12),
+        axis.title.x = element_text(face = "bold", size = 18),
+        axis.title.y = element_text(face = "bold", size = 18),
+        axis.line = element_line(colour = "black"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)) +
+  scale_fill_manual(name = "Participant Race",
+                    values = c('White' = 'darkturquoise',
+                               'Non-White' = 'darkviolet'))
+library(Hmisc)
+
+ggplot(data = def1,
+       mapping = aes(x = RaceGroup,
+                     y = CrimCulpMean,
+                     fill = PartRace)) +
+  #geom_point() +
+  geom_violin(adjust = 2, trim = FALSE, alpha = 0.8) +
+  geom_jitter(width = .25,
+              alpha = .2,
+              height = .1) +
+  geom_violin(adjust = 2) +
+  stat_summary(fun = mean,
+               geom = "crossbar",
+               aes(group = PartRace),
+               show.legend = FALSE,
+               position = position_dodge(width = 0.9),
+               width = 0.5,
+               size = 0.4,
+               color = "red") +
+  # stat_summary(fun = "mean",
+  #              geom = "hpline",
+  #              width = .8,
+  #              size = 1.5,
+  #              color = "black") +
+  stat_summary(fun.data = mean_cl_normal,
+               geom = "errorbar",
+               position = position_dodge(width = 0.9),
+               width = .8,
+               size = 0.4,
+               color = "black") +
+  labs(x = "Race Group", y = "Mean Criminal Culpability") +
+  scale_x_discrete(labels = c("GroupA" = "A
+                            White Def1", "Black Def1")) +
+  facet_grid(~AgeAccuracy) +
+  theme(
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text( size = 12),
+        axis.title.x = element_text(face = "bold", size = 18),
+        axis.title.y = element_text(face = "bold", size = 18),
+        axis.line = element_line(colour = "black"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)) +
+  scale_fill_manual(name = "Participant Race",
+                    values = c('White' = 'darkturquoise',
+                               'Non-White' = 'darkviolet'))
+
+  
+# ggplot(data = def2, aes(x = RaceGroup, y = CrimCulpMean, fill = PartRace)) +
+#    geom_col(position = "dodge") # +
+#   # facet_wrap(~AgeAccuracy+Verdict)
+
+# def2_vis <- def2 %>%
+#   mutate(atabove2 = ifelse(CrimCulpMean > 2.5, 1, 0)) %>%
+#   filter(!is.na(atabove2))
+# 
+# summarize_def2 <- def2_vis %>%
+#   group_by(PartRace, RaceGroup, AgeAccuracy, Verdict) %>%
+#   dplyr::summarize(
+#     perc_atabove2 = sum(atabove2, na.rm = TRUE)/length(atabove2)
+#     )
+# 
+# ggplot(data = summarize_def2, aes(x = RaceGroup, y = perc_atabove2, fill = PartRace)) +
+#   geom_col(position = "dodge")  #+
+#   #facet_wrap(~AgeAccuracy+Verdict)
+
+ggplot(data = def2,
+       mapping = aes(x = RaceGroup,
+                     y = CrimCulpMean,
+                     fill = PartRace)) +
+  #geom_point() +
+  geom_violin(adjust = 2, trim = FALSE, alpha = 0.8) +
+  geom_jitter(width = .25,
+              alpha = .1,
+              height = .1) +
+  geom_violin(adjust = 2) +
+  labs(x = "Race Group", y = "Mean Criminal Culpability") +
+  scale_x_discrete(labels = c("GroupA" = "A: White D1", "GroupB" = "B: Black D1", "GroupC" = "Control")) +
+  stat_summary(fun = mean,
+               geom = "crossbar",
+               aes(group = PartRace),
+               show.legend = FALSE,
+               position = position_dodge(width = 0.9),
+               width = 0.5,
+               size = 0.4,
+               color = "red") +
+  # stat_summary(fun = "mean",
+  #              geom = "hpline",
+  #              width = .8,
+  #              size = 1.5,
+  #              color = "black") +
+  stat_summary(fun.data = mean_cl_normal,
+               geom = "errorbar",
+               position = position_dodge(width = 0.9),
+               width = .8,
+               size = 0.4,
+               color = "black")  +
+  facet_grid(~AgeAccuracy) +
+  theme(
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text( size = 12),
+        axis.title.x = element_text(face = "bold", size = 18),
+        axis.title.y = element_text(face = "bold", size = 18),
+        axis.line = element_line(colour = "black"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)) +
+  scale_fill_manual(name = "Participant Race",
+                    values = c('White' = 'darkturquoise',
+                               'Non-White' = 'darkviolet'))
+
+
+ggplot(data = def2,
+       mapping = aes(x = RaceGroup,
+                     y = CrimCulpMean,
+                     fill = PartRace)) +
+  #geom_point() +
+  geom_violin(adjust = 2, trim = FALSE, alpha = 0.8) +
+  geom_jitter(width = .25,
+              alpha = .1,
+              height = .1) +
+  geom_violin(adjust = 2) +
+  labs(x = "Race Group", y = "Mean Criminal Culpability") +
+  scale_x_discrete(labels = c("GroupA" = "A: White D1", "GroupB" = "B: Black D1", "GroupC" = "Control")) +
+  stat_summary(fun = mean,
+               geom = "crossbar",
+               aes(group = PartRace),
+               show.legend = FALSE,
+               position = position_dodge(width = 0.9),
+               width = 0.5,
+               size = 0.4,
+               color = "red") +
+  # stat_summary(fun = "mean",
+  #              geom = "hpline",
+  #              width = .8,
+  #              size = 1.5,
+  #              color = "black") +
+  stat_summary(fun.data = mean_cl_normal,
+               geom = "errorbar",
+               position = position_dodge(width = 0.9),
+               width = .8,
+               size = 0.4,
+               color = "black")  +
+  #facet_grid(~AgeAccuracy) +
+  theme(
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text( size = 12),
+        axis.title.x = element_text(face = "bold", size = 18),
+        axis.title.y = element_text(face = "bold", size = 18),
+        axis.line = element_line(colour = "black"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 10)) +
+  scale_fill_manual(name = "Participant Race",
+                    values = c('White' = 'darkturquoise',
+                               'Non-White' = 'darkviolet'))
+
+table(def1$Verdict)
+table(def2$Verdict)
+
+```
+
+Guilt Graphs
+
+```{r}
+
+ggplot(data = def1, aes(x = RaceGroup, 
+                               fill = Verdict))+
+         geom_bar(position = "dodge") +
+  labs(x = "Race Group", y = "Verdict Count") +
+         scale_x_discrete(labels = c("GroupA" = "A: White D1", "GroupB" = "B: Black D1")) +
+  facet_wrap(~PartRace,
+             labeller = as_labeller(c(
+               'White' = 'White Participant',
+               'Non-White' = 'Non-White Participant'))) +
+         scale_fill_manual('Legend',
+                           values = c('Guilty' = 'darkred', 'Not Guilty' = 'darkgreen')) +
+         geom_hline(yintercept = 2.5,
+                    linetype = "dashed",
+                    color = "blue",
+                    size = 1.1) +
+         #ylim(0,5) +
+         theme(
+           panel.background = element_blank(),
+           axis.ticks = element_blank(),
+           axis.text.x = element_text(size = 10),
+           axis.text.y = element_text( size = 10),
+           axis.title.x = element_text(face = "bold", size = 15),
+           axis.title.y = element_text(face = "bold", size = 15),
+           axis.line = element_line(colour = "black")
+         ) 
+
+ggplot(data = def1, aes(x = RaceGroup, 
+                               fill = Verdict))+
+         geom_bar(position = "dodge") +
+  labs(x = "Race Group", y = "Verdict Count") +
+         scale_x_discrete(labels = c("GroupA" = "A: White D1", "GroupB" = "B: Black D1")) +
+  facet_wrap(~PartRace,
+             labeller = as_labeller(c(
+               'White' = 'White Participant',
+               'Non-White' = 'Non-White Participant'))) +
+         scale_fill_manual('Legend',
+                           values = c('Guilty' = 'darkred', 'Not Guilty' = 'darkgreen')) +
+         geom_hline(yintercept = 2.5,
+                    linetype = "dashed",
+                    color = "blue",
+                    size = 1.1) +
+         #ylim(0,5) +
+         theme(
+           panel.background = element_blank(),
+           axis.ticks = element_blank(),
+           axis.text.x = element_text(size = 10),
+           axis.text.y = element_text( size = 10),
+           axis.title.x = element_text(face = "bold", size = 15),
+           axis.title.y = element_text(face = "bold", size = 15),
+           axis.line = element_line(colour = "black")
+         ) 
+
+unique(def1$RaceGroup)
+
+ggplot(data = def2, aes(x = RaceGroup, 
+                               fill = Verdict))+
+         geom_bar(position = "dodge") +
+  labs(x = "Race Group", y = "Verdict Count") +
+         scale_x_discrete(labels = c("GroupA" = "A: White D1", "GroupB" = "B: Black D1", "GroupC" = "Control")) +
+  facet_wrap(~PartRace,
+             labeller = as_labeller(c(
+               'White' = 'White Participant',
+               'Non-White' = 'Non-White Participant'))) +
+         scale_fill_manual('Legend',
+                           values = c('Guilty' = 'darkred', 'Not Guilty' = 'darkgreen'))  +
+         geom_hline(yintercept = 2.5,
+                    linetype = "dashed",
+                    color = "blue",
+                    size = 1.1) +
+         #ylim(0,5) +
+         theme(
+           panel.background = element_blank(),
+           axis.ticks = element_blank(),
+           axis.text.x = element_text(size = 5),
+           axis.text.y = element_text( size = 10),
+           axis.title.x = element_text(face = "bold", size = 15),
+           axis.title.y = element_text(face = "bold", size = 15),
+           axis.line = element_line(colour = "black")
+         ) 
+
+```
